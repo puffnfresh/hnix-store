@@ -32,13 +32,14 @@ module System.Nix.Store.Remote (
 import           Data.Maybe
 import qualified Data.ByteString.Lazy      as LBS
 import qualified Data.Map.Strict           as M
+import qualified Data.Text.Encoding        as E
 
 import           Control.Monad
 
 import qualified System.Nix.Build      as Build
 import qualified System.Nix.Derivation as Drv
 import qualified System.Nix.GC         as GC
-import           System.Nix.Hash       (Digest, HashAlgorithm)
+import           System.Nix.Hash       (Digest, HashAlgorithm, hash)
 import           System.Nix.Path
 import           System.Nix.Util
 
@@ -93,26 +94,26 @@ querySubstitutablePathInfos ps = do
                , narSize = narSize'
                }
 
-queryPathInfoUncached :: Path -> MonadStore ValidPathInfo
+queryPathInfoUncached :: PathName -> MonadStore ValidPathInfo
 queryPathInfoUncached p = do
   runOpArgs QueryPathInfo $ do
-    putPath p
+    putPathName p
 
   valid <- sockGetBool
   unless valid $ error "Path is not valid"
 
   drv <- sockGetStr
-  hash' <- lBSToText <$> sockGetStr
-  refs <- sockGetPaths
+  hash' <- sockGetStr
+  refs <- sockGetPathNames
   regTime <- sockGetInt
   size <- sockGetInt
   ulti <- sockGetBool
   sigs' <- map lBSToText <$> sockGetStrings
   ca' <- lBSToText <$> sockGetStr
   return $ ValidPathInfo {
-             path = p
-           , deriverVP = mkPath drv
-           , narHash = hash'
+             path = Path (hash $ LBS.toStrict hash') p
+           , deriverVP = Just . PathName . E.decodeUtf8 $ LBS.toStrict drv
+           , narHash = lBSToText hash'
            , referencesVP = refs
            , registrationTime = regTime
            , narSizeVP = size

@@ -7,6 +7,7 @@ import           Data.Binary.Get
 import           Data.Binary.Put
 import           Data.Text                 (Text)
 import qualified Data.Text                 as T
+import qualified Data.Text.Encoding        as E
 import qualified Data.ByteString           as B
 import qualified Data.ByteString.Char8     as BSC
 import qualified Data.ByteString.Lazy      as LBS
@@ -49,6 +50,9 @@ sockGetPath = getSocketIncremental getPath
 sockGetPaths :: MonadStore PathSet
 sockGetPaths = getSocketIncremental getPaths
 
+sockGetPathNames :: MonadStore (HashSet.HashSet PathName)
+sockGetPathNames = getSocketIncremental getPathNames
+
 sockGetInt :: Integral a => MonadStore a
 sockGetInt = getSocketIncremental getInt
 
@@ -84,6 +88,9 @@ mkPath p = case (pathName $ lBSToText p) of
 
 getPath :: Get (Maybe Path)
 getPath = mkPath <$> getByteStringLen
+
+getPathNames :: Get (HashSet.HashSet PathName)
+getPathNames = HashSet.fromList . map (PathName . E.decodeUtf8 . LBS.toStrict) <$> getByteStrings
 
 getPaths :: Get PathSet
 getPaths = HashSet.fromList . catMaybes . map mkPath <$> getByteStrings

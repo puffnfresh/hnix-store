@@ -78,11 +78,11 @@ data ValidPathInfo = ValidPathInfo
   { -- | Path itself
     path             :: !Path
   , -- | The .drv which led to this 'Path'.
-    deriverVP        :: !(Maybe Path)
+    deriverVP        :: !(Maybe PathName)
   , -- | NAR hash
     narHash          :: !Text
   , -- | The references of the 'Path'
-    referencesVP     :: !PathSet
+    referencesVP     :: !(HashSet PathName)
   , -- | Registration time should be time_t
     registrationTime :: !Integer
   , -- | The size of the uncompressed NAR serialization of this
