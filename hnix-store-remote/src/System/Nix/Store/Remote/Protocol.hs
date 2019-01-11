@@ -4,6 +4,7 @@ module System.Nix.Store.Remote.Protocol (
   , simpleOpArgs
   , runOp
   , runOpArgs
+  , runStoreWithSocket
   , runStore) where
 
 import           Control.Exception         (bracket)
@@ -138,14 +139,10 @@ runOpArgs op args = do
     Error _num msg <- head <$> getError
     throwError $ BSC.unpack $ LBS.toStrict msg
 
-runStore :: MonadStore a -> IO (Either String a, [Logger])
-runStore code = do
-  bracket (open sockPath) close run
+runStoreWithSocket :: MonadStore a -> Socket -> IO (Either String a, [Logger])
+runStoreWithSocket code sock =
+  flip runReaderT sock $ flip runStateT [] $ runExceptT (greet >> code)
   where
-    open path = do
-      soc <- socket AF_UNIX Stream 0
-      connect soc (SockAddrUnix path)
-      return soc
     greet = do
       sockPut $ putInt workerMagic1
       soc <- ask
@@ -159,5 +156,11 @@ runStore code = do
 
       processOutput
 
-    run sock =
-      flip runReaderT sock $ flip runStateT [] $ runExceptT (greet >> code)
+runStore :: MonadStore a -> IO (Either String a, [Logger])
+runStore code = do
+  bracket (open sockPath) close (runStoreWithSocket code)
+  where
+    open path = do
+      soc <- socket AF_UNIX Stream 0
+      connect soc (SockAddrUnix path)
+      return soc
