@@ -2,6 +2,7 @@
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashSet as HS
 import qualified System.Nix.GC as GC
+import System.Nix.Path
 import System.Nix.Store.Remote
 import System.Nix.Store.Remote.Util
 import Data.Maybe
@@ -17,12 +18,12 @@ main = do
 
     verifyStore False False
 
-    (Just path) <- addTextToStore "hnix-store" "test" (HS.fromList [])  False
+    (Just path@(Path _ pathName)) <- addTextToStore "hnix-store" "test" (HS.fromList [])  False
 
     valid <- isValidPathUncached path
     case valid of
       True -> do
-        info <- queryPathInfoUncached path
+        info <- queryPathInfoUncached pathName
         return (path, info)
       _ -> error "shouldn't happen"
 
