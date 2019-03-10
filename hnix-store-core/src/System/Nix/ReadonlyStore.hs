@@ -24,6 +24,15 @@ makeStorePath storeDir ty h nm = Path storeHash (PathName nm)
       ]
     storeHash = truncateDigest $ hash $ encodeUtf8 s
 
+makeFixedOutputPath :: Text -> Bool -> Digest 'SHA256 -> Text -> Path
+makeFixedOutputPath storeDir recursive h nm =
+  makeStorePath storeDir ty h' nm
+  where
+    (ty, h') =
+      if recursive
+      then ("source", h)
+      else ("output:out", hash ("fixed:out:" <> encodeUtf8 (digestText16 h) <> ":"))
+
 makeTextPath :: Text -> Text -> Digest 'SHA256 -> PathSet -> Path
 makeTextPath storeDir nm h refs = makeStorePath storeDir ty h nm
   where
