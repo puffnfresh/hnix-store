@@ -7,6 +7,7 @@ Maintainer  : Brian McKenna <brian@brianmckenna.org>
 {-# LANGUAGE TypeApplications #-}
 module System.Nix.Store.Binary (
   BinaryStoreEffects(..)
+, initCacheInfoFile
 , addToStore
 ) where
 
@@ -25,8 +26,16 @@ import System.Nix.ReadonlyStore
 
 data BinaryStoreEffects m =
   BinaryStoreEffects
-    { upsertFile :: Text -> BS.ByteString -> Text -> m ()
+    { initBinaryStore :: Text -> m ()
+    , upsertFile :: Text -> BS.ByteString -> Text -> m ()
     }
+
+initCacheInfoFile
+  :: (Text -> BS.ByteString -> Text -> m ())
+  -> Text
+  -> m ()
+initCacheInfoFile upsertFile' storeDir =
+  upsertFile' "nix-cache-info" ("StoreDir: " <> E.encodeUtf8 storeDir <> "\n") "text/x-nix-cache-info"
 
 narInfoFileFor
   :: Path

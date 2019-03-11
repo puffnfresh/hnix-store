@@ -18,7 +18,7 @@ localBinaryStoreEffects
   => FilePath
   -> BinaryStoreEffects m
 localBinaryStoreEffects cacheDir =
-  BinaryStoreEffects upsertFile'
+  BinaryStoreEffects (initCacheInfoFile upsertFile') upsertFile'
   where
     upsertFile' pth d _ = liftIO $ do
       let pth' = cacheDir </> T.unpack pth
