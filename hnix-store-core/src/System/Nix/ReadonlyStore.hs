@@ -31,7 +31,11 @@ makeFixedOutputPath storeDir recursive h nm =
     (ty, h') =
       if recursive
       then ("source", h)
-      else ("output:out", hash ("fixed:out:" <> encodeUtf8 (digestText16 h) <> ":"))
+      else ("output:out", hash @'SHA256 ("fixed:out:" <> encodeUtf8 (digestText16 h) <> ":"))
+
+makeFixedOutputCA :: Bool -> Digest 'SHA256 -> Text
+makeFixedOutputCA recursive h =
+  "fixed:" <> (if recursive then "r:" else "") <> digestText32 h
 
 makeTextPath :: Text -> Text -> Digest 'SHA256 -> PathSet -> Path
 makeTextPath storeDir nm h refs = makeStorePath storeDir ty h nm
