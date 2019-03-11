@@ -41,13 +41,13 @@ upsertFile bucketName pth d mimeType =
   send (putObject bucketName (ObjectKey pth) (toBody d) & poContentType ?~ mimeType)
 
 data NarInfo
-  = NarInfo Path BS.ByteString BS.ByteString (Digest 'SHA256) Int (Digest 'SHA256) Int
+  = NarInfo Path BS.ByteString BS.ByteString (Digest 'SHA256) Int (Digest 'SHA256) Int Text
 
 narInfoToString
   :: Text
   -> NarInfo
   -> BS.ByteString
-narInfoToString storeDir (NarInfo pth url compression fileHash fileSize narHash' narSize') =
+narInfoToString storeDir (NarInfo pth url compression fileHash fileSize narHash' narSize' ca') =
   BS.unlines
     [ "StorePath: " <> E.encodeUtf8 (pathToText storeDir pth)
     , "URL: " <> url
@@ -57,14 +57,14 @@ narInfoToString storeDir (NarInfo pth url compression fileHash fileSize narHash'
     , "NarHash: " <> E.encodeUtf8 (digestText32 narHash')
     , "NarSize: " <> fromString (show narSize')
     , "References: "
+    , "CA: " <> E.encodeUtf8 ca'
     ]
 
 narInfoFileFor
-  :: Text
-  -> Path
+  :: Path
   -> Text
-narInfoFileFor storeDir pth =
-  pathToText storeDir pth <> ".narinfo"
+narInfoFileFor (Path h _) =
+  printAsBase32 h <> ".narinfo"
 
 addToStore
   :: Text
@@ -99,9 +99,18 @@ addToStore storeDir bucketName name pth recursive pfilter repair = do
     narCompressed = nar & lazy %~ compress
     url = "nar/" <> printAsBase32 fileHash <> ".nar.xz"
     fileHash = hash @'SHA256 narCompressed
-    narInfo = NarInfo pth' (E.encodeUtf8 url) "xz" fileHash (BS.length narCompressed) (hash @'SHA256 nar) (BS.length nar)
+    narInfo =
+      NarInfo
+        pth'
+        (E.encodeUtf8 url)
+        "xz"
+        fileHash
+        (BS.length narCompressed)
+        (hash @'SHA256 nar)
+        (BS.length nar)
+        (makeFixedOutputCA recursive h)
 
   void . lift $ upsertFile bucketName url narCompressed "application/x-nix-nar"
-  void . lift $ upsertFile bucketName (narInfoFileFor storeDir pth') (narInfoToString storeDir narInfo) "text/x-nix-narinfo"
+  void . lift $ upsertFile bucketName (narInfoFileFor pth') (narInfoToString storeDir narInfo) "text/x-nix-narinfo"
 
   pure pth'
