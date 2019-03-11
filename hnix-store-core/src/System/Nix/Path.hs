@@ -13,6 +13,8 @@ module System.Nix.Path
   , PathSet
   , SubstitutablePathInfo(..)
   , ValidPathInfo(..)
+  , NarInfo(..)
+  , narInfoToString
   , PathName(..)
   , filePathPart
   , pathName
@@ -110,6 +112,38 @@ data ValidPathInfo = ValidPathInfo
     -- * ‘fixed:<r?>:<ht>:<h>’ (paths by makeFixedOutputPath() / addToStore())
     ca               :: !Text
   } deriving (Eq, Ord, Show)
+
+-- | Information for .narinfo files
+data NarInfo = NarInfo
+  { -- | NarInfo is a ValidPathInfo
+    pathInfoNI  :: !ValidPathInfo
+  , -- | URL
+    urlNI       :: !Text
+  , -- | File hash
+    fileHash    :: !Text
+  , -- | File size
+    fileSizeNI  :: !Integer
+  , -- | Compression format
+    compression :: !Text
+  }
+
+-- | Serialize to .narinfo contents
+narInfoToString
+  :: Text
+  -> NarInfo
+  -> Text
+narInfoToString storeDir narInfo =
+  T.unlines
+    [ "StorePath: " <> pathToText storeDir (path $ pathInfoNI narInfo)
+    , "URL: " <> urlNI narInfo
+    , "Compression: " <> compression narInfo
+    , "FileHash: " <> fileHash narInfo
+    , "FileSize: " <> T.pack (show $ fileSizeNI narInfo)
+    , "NarHash: " <> narHash (pathInfoNI narInfo)
+    , "NarSize: " <> T.pack (show . narSizeVP $ pathInfoNI narInfo)
+    , "References: "
+    , "CA: " <> ca (pathInfoNI narInfo)
+    ]
 
 -- | A valid filename or directory name
 newtype FilePathPart = FilePathPart { unFilePathPart :: BSC.ByteString }

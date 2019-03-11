@@ -40,26 +40,6 @@ upsertFile
 upsertFile bucketName pth d mimeType =
   send (putObject bucketName (ObjectKey pth) (toBody d) & poContentType ?~ mimeType)
 
-data NarInfo
-  = NarInfo Path BS.ByteString BS.ByteString (Digest 'SHA256) Int (Digest 'SHA256) Int Text
-
-narInfoToString
-  :: Text
-  -> NarInfo
-  -> BS.ByteString
-narInfoToString storeDir (NarInfo pth url compression fileHash fileSize narHash' narSize' ca') =
-  BS.unlines
-    [ "StorePath: " <> E.encodeUtf8 (pathToText storeDir pth)
-    , "URL: " <> url
-    , "Compression: " <> compression
-    , "FileHash: " <> E.encodeUtf8 (digestText32 fileHash)
-    , "FileSize: " <> fromString (show fileSize)
-    , "NarHash: " <> E.encodeUtf8 (digestText32 narHash')
-    , "NarSize: " <> fromString (show narSize')
-    , "References: "
-    , "CA: " <> E.encodeUtf8 ca'
-    ]
-
 narInfoFileFor
   :: Path
   -> Text
@@ -97,20 +77,28 @@ addToStore storeDir bucketName name pth recursive pfilter repair = do
   let
     pth' = makeFixedOutputPath storeDir recursive h . E.decodeUtf8 $ LBS.toStrict name
     narCompressed = nar & lazy %~ compress
-    url = "nar/" <> printAsBase32 fileHash <> ".nar.xz"
-    fileHash = hash @'SHA256 narCompressed
+    fileHash' = hash @'SHA256 narCompressed
+    url = "nar/" <> printAsBase32 fileHash' <> ".nar.xz"
+    validPathInfo =
+      ValidPathInfo
+        pth'
+        Nothing
+        (digestText32 $ hash @'SHA256 nar)
+        mempty
+        0
+        (fromIntegral $ BS.length nar)
+        False
+        []
+        (makeFixedOutputCA recursive h)
     narInfo =
       NarInfo
-        pth'
-        (E.encodeUtf8 url)
+        validPathInfo
+        url
+        (digestText32 fileHash')
+        (fromIntegral $ BS.length narCompressed)
         "xz"
-        fileHash
-        (BS.length narCompressed)
-        (hash @'SHA256 nar)
-        (BS.length nar)
-        (makeFixedOutputCA recursive h)
 
   void . lift $ upsertFile bucketName url narCompressed "application/x-nix-nar"
-  void . lift $ upsertFile bucketName (narInfoFileFor pth') (narInfoToString storeDir narInfo) "text/x-nix-narinfo"
+  void . lift $ upsertFile bucketName (narInfoFileFor pth') (E.encodeUtf8 $ narInfoToString storeDir narInfo) "text/x-nix-narinfo"
 
   pure pth'
